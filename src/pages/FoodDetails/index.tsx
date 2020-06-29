@@ -74,37 +74,72 @@ const FoodDetails: React.FC = () => {
   useEffect(() => {
     async function loadFood(): Promise<void> {
       // Load a specific food with extras based on routeParams id
+      const getFood = await api.get<Food>(`foods/${routeParams.id}`);
+
+      setExtras(getFood.data.extras.map(extra => ({ ...extra, quantity: 0 })));
+      setFood(getFood.data);
     }
 
     loadFood();
   }, [routeParams]);
 
   function handleIncrementExtra(id: number): void {
-    // Increment extra quantity
+    setExtras(
+      extras.map(extra => ({
+        ...extra,
+        quantity: extra.id === id ? extra.quantity + 1 : extra.quantity,
+      })),
+    );
   }
 
   function handleDecrementExtra(id: number): void {
-    // Decrement extra quantity
+    const decrementExtra = extras.map(extra => {
+      if (extra.id === id) {
+        return {
+          ...extra,
+          quantity: extra.quantity === 0 ? 0 : extra.quantity - 1,
+        };
+      }
+      return extra;
+    });
+
+    setExtras(decrementExtra);
   }
 
   function handleIncrementFood(): void {
-    // Increment food quantity
+    setFoodQuantity(state => state + 1);
   }
 
   function handleDecrementFood(): void {
-    // Decrement food quantity
+    setFoodQuantity(state => (state === 1 ? 1 : state - 1));
   }
 
   const toggleFavorite = useCallback(() => {
-    // Toggle if food is favorite or not
+    setIsFavorite(!isFavorite);
+    const fo = { ...food };
+
+    delete fo.extras;
+    delete fo.formattedPrice;
+
+    isFavorite
+      ? api.delete(`/favorites/${food.id}`)
+      : api.post('/favorites', fo);
   }, [isFavorite, food]);
 
   const cartTotal = useMemo(() => {
-    // Calculate cartTotal
+    const totalExtras = extras.reduce((accumulator, currentValue) => {
+      return accumulator + currentValue.value * currentValue.quantity;
+    }, 0);
+
+    const total = (Number(food.price) + totalExtras) * foodQuantity;
+    return formatValue(total);
   }, [extras, food, foodQuantity]);
 
   async function handleFinishOrder(): Promise<void> {
-    // Finish the order and save on the API
+    delete food.extras;
+    api.post('/orders', { ...food, price: cartTotal }).then(() => {
+      navigation.goBack();
+    });
   }
 
   // Calculate the correct icon name
